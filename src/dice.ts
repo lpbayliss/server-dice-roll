@@ -1,4 +1,5 @@
 import { z } from "zod";
+import crypto from "crypto";
 
 /**
  * Types for different kinds of dice rolls
@@ -42,6 +43,38 @@ export class DiceRollError extends Error {
 		super(message);
 		this.name = "DiceRollError";
 	}
+}
+
+/**
+ * Get a cryptographically secure random integer between min and max (inclusive)
+ * Handles modulo bias correction internally
+ * @param min - Lower bound (inclusive)
+ * @param max - Upper bound (inclusive)
+ * @returns A random integer between min and max
+ */
+function secureRandomInt(min: number, max: number): number {
+	// Try to use crypto.randomInt if available (Node.js 14.10.0+)
+	if (typeof crypto.randomInt === "function") {
+		return crypto.randomInt(min, max + 1);
+	}
+	
+	// Fallback for older Node.js versions
+	// Implement our own unbiased random using randomBytes
+	const range = max - min + 1;
+	const byteCount = Math.ceil(Math.log2(range) / 8);
+	const maxValue = 2 ** (byteCount * 8);
+	const cutoff = maxValue - (maxValue % range);
+	
+	let value: number;
+	do {
+		const buffer = crypto.randomBytes(byteCount);
+		value = 0;
+		for (let i = 0; i < byteCount; i++) {
+			value = (value << 8) | buffer[i];
+		}
+	} while (value >= cutoff);
+	
+	return min + (value % range);
 }
 
 /**
@@ -89,20 +122,20 @@ export function parseDiceNotation(notation: string): DiceRoll {
 }
 
 /**
- * Rolls a single die with the specified number of sides
+ * Rolls a single die with the specified number of sides using cryptographically secure random numbers
  * @param sides - Number of sides on the die
  * @returns A random number between 1 and sides (inclusive)
  */
 function rollSingleDie(sides: number): number {
-	return Math.floor(Math.random() * sides) + 1;
+	return secureRandomInt(1, sides);
 }
 
 /**
- * Rolls a single Fate/Fudge die
+ * Rolls a single Fate/Fudge die using cryptographically secure random numbers
  * @returns -1, 0, or 1 with equal probability
  */
 function rollFateDie(): number {
-	return Math.floor(Math.random() * 3) - 1;
+	return secureRandomInt(0, 2) - 1;
 }
 
 /**
