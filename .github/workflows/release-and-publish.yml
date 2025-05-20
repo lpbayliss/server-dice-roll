@@ -1,4 +1,4 @@
-name: Version Bump and Release
+name: Release and Publish
 
 on:
   push:
@@ -27,16 +27,21 @@ on:
           - major
 
 jobs:
-  version-bump-and-release:
+  # JOB 1: VERSION BUMP
+  version-bump:
     runs-on: ubuntu-latest
     # Define conditions for different trigger events
     if: |
       (github.event_name == 'push' && !startsWith(github.ref, 'refs/tags/')) || 
-      (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')) || 
       (github.event_name == 'pull_request' && github.event.pull_request.merged == true) || 
       github.event_name == 'workflow_dispatch'
     permissions:
       contents: write
+    
+    outputs:
+      new_version: ${{ env.NEW_VERSION }}
+      is_prerelease: ${{ env.IS_PRERELEASE }}
+      release_tag: ${{ env.RELEASE_TAG }}
     
     steps:
       - name: Checkout repository
@@ -64,25 +69,8 @@ jobs:
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
 
-      - name: Determine action type
-        id: determine-action
-        run: |
-          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
-            echo "ACTION_TYPE=tag_push" >> $GITHUB_ENV
-            REF="${{ github.ref }}"
-            TAG_NAME=${REF#refs/tags/}
-            echo "TAG_NAME=$TAG_NAME" >> $GITHUB_ENV
-            VERSION=${TAG_NAME#v}
-            echo "VERSION=$VERSION" >> $GITHUB_ENV
-            echo "Action type: Tag push for version $VERSION"
-          else
-            echo "ACTION_TYPE=version_bump" >> $GITHUB_ENV
-            echo "Action type: Version bump"
-          fi
-
       - name: Determine version bump
         id: bump-version
-        if: env.ACTION_TYPE == 'version_bump'
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -129,16 +117,14 @@ jobs:
             }
             
             core.exportVariable('BUMP_TYPE', bumpType);
-            
+
       - name: Get current version
-        if: env.ACTION_TYPE == 'version_bump'
         run: |
           # Get current version from package.json
           CURRENT_VERSION=$(node -p "require('./package.json').version")
           echo "CURRENT_VERSION=$CURRENT_VERSION" >> $GITHUB_ENV
       
       - name: Calculate new version
-        if: env.ACTION_TYPE == 'version_bump'
         run: |
           # Calculate new version based on bump type
           if [ "$BUMP_TYPE" == "patch" ]; then
@@ -150,79 +136,214 @@ jobs:
           fi
           
           echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_ENV
+          echo "RELEASE_TAG=v$NEW_VERSION" >> $GITHUB_ENV
+          
+          # Check if this is a prerelease
+          if [[ "$NEW_VERSION" == *"alpha"* || "$NEW_VERSION" == *"beta"* || "$NEW_VERSION" == *"rc"* ]]; then
+            echo "IS_PRERELEASE=true" >> $GITHUB_ENV
+          else
+            echo "IS_PRERELEASE=false" >> $GITHUB_ENV
+          fi
+          
           echo "Version will be bumped from $CURRENT_VERSION to $NEW_VERSION using $BUMP_TYPE bump"
       
       - name: Update version in package.json
-        if: env.ACTION_TYPE == 'version_bump'
         run: |
           npm version ${{ env.NEW_VERSION }} --no-git-tag-version
           
       - name: Commit and push changes
-        if: env.ACTION_TYPE == 'version_bump'
         run: |
           git add package.json
           git commit -m "chore: bump version to ${{ env.NEW_VERSION }} [skip-release]"
           git push origin main
       
       - name: Create tag
-        if: env.ACTION_TYPE == 'version_bump'
         run: |
-          git tag v${{ env.NEW_VERSION }}
-          git push origin v${{ env.NEW_VERSION }}
-          
-      # Set version from tag for tag push events
-      - name: Set version for tag events
-        if: env.ACTION_TYPE == 'tag_push'
-        run: |
-          echo "NEW_VERSION=$VERSION" >> $GITHUB_ENV
-          
-      # Directly create the GitHub Release 
+          git tag ${{ env.RELEASE_TAG }}
+          git push origin ${{ env.RELEASE_TAG }}
+
+  # JOB 2: CREATE RELEASE
+  create-release:
+    needs: version-bump
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    outputs:
+      release_id: ${{ steps.create_release.outputs.id }}
+      
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ needs.version-bump.outputs.release_tag }}
+      
       - name: Generate changelog
-        id: generate-changelog
+        id: generate_changelog
         run: |
-          RELEASE_TAG=""
-          if [ "$ACTION_TYPE" == "tag_push" ]; then
-            RELEASE_TAG="${{ env.TAG_NAME }}"
-          else
-            RELEASE_TAG="v${{ env.NEW_VERSION }}"
-          fi
+          # Get the current tag
+          CURRENT_TAG="${{ needs.version-bump.outputs.release_tag }}"
           
           # Get the latest tag before the current one
-          PREVIOUS_TAG=$(git describe --tags --abbrev=0 $RELEASE_TAG^ 2>/dev/null || echo "")
+          PREVIOUS_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
           
           if [ -z "$PREVIOUS_TAG" ]; then
             # If there's no previous tag, get all commit messages
-            CHANGELOG=$(git log --pretty=format:"- %s" $RELEASE_TAG)
+            CHANGELOG=$(git log --pretty=format:"- %s" HEAD)
           else
             # Get commit messages between the previous tag and the current tag
-            CHANGELOG=$(git log --pretty=format:"- %s" $PREVIOUS_TAG..$RELEASE_TAG)
+            CHANGELOG=$(git log --pretty=format:"- %s" $PREVIOUS_TAG..HEAD)
           fi
           
           # Create a temporary file for the changelog
           echo "$CHANGELOG" > changelog.md
           echo "CHANGELOG_PATH=changelog.md" >> $GITHUB_ENV
-          echo "RELEASE_TAG=$RELEASE_TAG" >> $GITHUB_ENV
       
       - name: Create GitHub Release
+        id: create_release
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const fs = require('fs');
             const changelog = fs.readFileSync(process.env.CHANGELOG_PATH, 'utf8');
-            const releaseTag = process.env.RELEASE_TAG;
-            const version = process.env.NEW_VERSION;
             
-            console.log(`Creating release for tag ${releaseTag} with version ${version}`);
-            
-            await github.rest.repos.createRelease({
+            const { data: release } = await github.rest.repos.createRelease({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              tag_name: releaseTag,
-              name: `Release ${version}`,
+              tag_name: '${{ needs.version-bump.outputs.release_tag }}',
+              name: 'Release ${{ needs.version-bump.outputs.new_version }}',
               body: changelog || 'No changes documented',
               draft: false,
-              prerelease: version.includes('alpha') || 
-                         version.includes('beta') || 
-                         version.includes('rc')
-            }); 
+              prerelease: ${{ needs.version-bump.outputs.is_prerelease }}
+            });
+            
+            return { id: release.id };
+
+  # JOB 3: PUBLISH TO NPM
+  publish:
+    needs: create-release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.version-bump.outputs.release_tag }}
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: '10.11.0'
+          run_install: false
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+          registry-url: 'https://registry.npmjs.org'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Build
+        run: pnpm build
+      
+      - name: Publish to npm
+        run: pnpm publish --no-git-checks
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  # ALTERNATIVE FLOW FOR TAG PUSHES
+  process-tag:
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Extract version from tag
+        id: extract_version
+        run: |
+          TAG_NAME=${GITHUB_REF#refs/tags/}
+          VERSION=${TAG_NAME#v}
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          echo "TAG_NAME=$TAG_NAME" >> $GITHUB_ENV
+          
+          # Check if this is a prerelease
+          if [[ "$VERSION" == *"alpha"* || "$VERSION" == *"beta"* || "$VERSION" == *"rc"* ]]; then
+            echo "IS_PRERELEASE=true" >> $GITHUB_ENV
+          else
+            echo "IS_PRERELEASE=false" >> $GITHUB_ENV
+          fi
+      
+      - name: Generate changelog
+        id: generate_changelog
+        run: |
+          # Get the latest tag before the current one
+          PREVIOUS_TAG=$(git describe --tags --abbrev=0 ${{ env.TAG_NAME }}^ 2>/dev/null || echo "")
+          
+          if [ -z "$PREVIOUS_TAG" ]; then
+            # If there's no previous tag, get all commit messages
+            CHANGELOG=$(git log --pretty=format:"- %s" ${{ env.TAG_NAME }})
+          else
+            # Get commit messages between the previous tag and the current tag
+            CHANGELOG=$(git log --pretty=format:"- %s" $PREVIOUS_TAG..${{ env.TAG_NAME }})
+          fi
+          
+          # Create a temporary file for the changelog
+          echo "$CHANGELOG" > changelog.md
+          echo "CHANGELOG_PATH=changelog.md" >> $GITHUB_ENV
+      
+      - name: Create GitHub Release
+        id: create_release
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const changelog = fs.readFileSync(process.env.CHANGELOG_PATH, 'utf8');
+            
+            const { data: release } = await github.rest.repos.createRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              tag_name: process.env.TAG_NAME,
+              name: `Release ${process.env.VERSION}`,
+              body: changelog || 'No changes documented',
+              draft: false,
+              prerelease: process.env.IS_PRERELEASE === 'true'
+            });
+            
+            core.setOutput('release_id', release.id);
+      
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: '10.11.0'
+          run_install: false
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+          registry-url: 'https://registry.npmjs.org'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Build
+        run: pnpm build
+      
+      - name: Publish to npm
+        run: pnpm publish --no-git-checks
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }} 

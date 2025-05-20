@@ -102,7 +102,7 @@ Created by Luke Bayliss <hello@lukebayliss.com>
 
 ## Release Process
 
-This project uses a consolidated automated workflow for versioning and releases:
+This project uses a single integrated workflow for versioning, releases, and publishing:
 
 1. **Version Bump Labels**: Each PR to the main branch should include exactly one version bump label:
    - `patch` - For backwards-compatible bug fixes
@@ -110,19 +110,18 @@ This project uses a consolidated automated workflow for versioning and releases:
    - `major` - For breaking changes
    - If no label is specified, `patch` is applied by default
 
-2. **Automatic Version Bumping**: The version is automatically bumped in the following scenarios:
-   - When a PR is merged to main, using the PR's version label
-   - When changes are pushed directly to main (as a safety mechanism), using patch version
+2. **Sequential Workflow**: The integrated Release and Publish workflow consists of three sequential jobs:
+   - **Job 1: Version Bump** - Updates version in package.json and creates a git tag
+   - **Job 2: Release Creation** - Creates a GitHub release with changelog
+   - **Job 3: Publish** - Publishes the package to npm
+
+3. **Automated Triggers**: The workflow runs automatically in these scenarios:
+   - When a PR is merged to main (using the PR's version label)
+   - When changes are pushed directly to main (using patch version)
    - When manually triggered via GitHub Actions
+   - When a tag is manually pushed (skips version bump, only creates release and publishes)
 
-3. **Release Process**: The workflow handles the entire release process automatically:
-   - Updates the version in package.json
-   - Creates and pushes a Git tag
-   - Generates a changelog from commit messages
-   - Creates a GitHub release
-   - Triggers package publishing to npm
-
-4. **Manual Releases**: You can also manually create a Git tag (v1.2.3) and push it to trigger the release process without changing the version.
+All these steps run in a coordinated workflow with proper dependencies to ensure reliability.
 
 ### PR Requirements
 
