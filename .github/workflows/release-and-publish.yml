@@ -56,7 +56,7 @@ jobs:
           node-version: '22.x'
       
       - name: Install pnpm
-        uses: pnpm/action-setup@v2
+        uses: pnpm/action-setup@v4
         with:
           version: '10.11.0'
           run_install: false
@@ -236,7 +236,7 @@ jobs:
           ref: ${{ needs.version-bump.outputs.release_tag }}
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v2
+        uses: pnpm/action-setup@v4
         with:
           version: '10.11.0'
           run_install: false
@@ -325,7 +325,7 @@ jobs:
             core.setOutput('release_id', release.id);
       
       - name: Install pnpm
-        uses: pnpm/action-setup@v2
+        uses: pnpm/action-setup@v4
         with:
           version: '10.11.0'
           run_install: false
