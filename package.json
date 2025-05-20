@@ -1,0 +1,47 @@
+{
+  "name": "server-dice-roll",
+  "version": "1.0.0",
+  "description": "MCP server for simulating dice rolls",
+  "license": "MIT",
+  "author": "Luke Bayliss <hello@lukebayliss.com>",
+  "type": "module",
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "types": "./index.d.ts",
+      "default": "./index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch",
+    "debug": "npx @modelcontextprotocol/inspector mcp-server-doug",
+    "clean": "rm -rf lib",
+    "biome": "biome check --write"
+  },
+  "keywords": [
+    "model",
+    "context",
+    "protocol",
+    "mcp",
+    "dice",
+    "roll",
+    "server"
+  ],
+  "packageManager": "pnpm@10.5.2",
+  "bin": {
+    "mcp-server-dice-roll": "cli.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.11.4",
+    "chalk": "^5.4.1",
+    "commander": "^14.0.0",
+    "zod": "^3.25.7"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.4",
+    "@modelcontextprotocol/inspector": "^0.12.0",
+    "@types/node": "^22.15.19",
+    "typescript": "^5.8.3"
+  }
+}
