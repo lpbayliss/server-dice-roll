@@ -1,6 +1,6 @@
 {
   "name": "server-dice-roll",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "description": "MCP server for simulating dice rolls",
   "license": "MIT",
   "author": "Luke Bayliss <hello@lukebayliss.com>",
