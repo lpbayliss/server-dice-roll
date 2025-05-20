@@ -8,7 +8,7 @@ import { startServer } from "./server.js";
 program
     .version("Version " + packageJSON.version)
     .name(packageJSON.name)
-    .description(chalk.green("Doug is a CLI tool for managing your projects"))
+    .description(chalk.green("MCP server for simulating dice rolls with support for standard dice notation and Fate/Fudge dice"))
     .action(async () => {
         await startServer().catch((err) => {
             console.error("Fatal error running server", err);
