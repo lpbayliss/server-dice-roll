@@ -15,7 +15,7 @@
   "scripts": {
     "build": "tsc",
     "watch": "tsc --watch",
-    "debug": "npx @modelcontextprotocol/inspector mcp-server-doug",
+    "debug": "npx @modelcontextprotocol/inspector ./cli.js",
     "clean": "rm -rf lib",
     "biome": "biome check --write"
   },
