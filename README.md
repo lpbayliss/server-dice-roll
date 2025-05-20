@@ -102,19 +102,27 @@ Created by Luke Bayliss <hello@lukebayliss.com>
 
 ## Release Process
 
-This project uses automated release workflows based on Pull Requests:
+This project uses a consolidated automated workflow for versioning and releases:
 
-1. **Version Bump Labels**: Each PR to the main branch must include exactly one version bump label:
+1. **Version Bump Labels**: Each PR to the main branch should include exactly one version bump label:
    - `patch` - For backwards-compatible bug fixes
    - `minor` - For backwards-compatible new features
    - `major` - For breaking changes
+   - If no label is specified, `patch` is applied by default
 
-2. **Version Bumping**: When a PR is merged to main, the version is automatically bumped according to the PR label.
-   - As a safety mechanism, if changes are pushed directly to main (bypassing the PR process), a patch version bump will be triggered automatically.
+2. **Automatic Version Bumping**: The version is automatically bumped in the following scenarios:
+   - When a PR is merged to main, using the PR's version label
+   - When changes are pushed directly to main (as a safety mechanism), using patch version
+   - When manually triggered via GitHub Actions
 
-3. **Release Creation**: When a version is bumped, a GitHub release is automatically created with a changelog based on commit messages.
+3. **Release Process**: The workflow handles the entire release process automatically:
+   - Updates the version in package.json
+   - Creates and pushes a Git tag
+   - Generates a changelog from commit messages
+   - Creates a GitHub release
+   - Triggers package publishing to npm
 
-4. **Package Publishing**: When a GitHub release is created, the package is automatically published to npm.
+4. **Manual Releases**: You can also manually create a Git tag (v1.2.3) and push it to trigger the release process without changing the version.
 
 ### PR Requirements
 
