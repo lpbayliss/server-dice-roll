@@ -1,15 +1,18 @@
 {
   "name": "server-dice-roll",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "MCP server for simulating dice rolls",
   "license": "MIT",
   "author": "Luke Bayliss <hello@lukebayliss.com>",
   "type": "module",
+  "files": [
+    "lib/**/*",
+    "cli.js"
+  ],
   "exports": {
     "./package.json": "./package.json",
     ".": {
-      "types": "./index.d.ts",
-      "default": "./index.js"
+      "default": "./lib/program.js"
     }
   },
   "scripts": {
