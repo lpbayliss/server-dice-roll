@@ -59,12 +59,30 @@ server.registerTool(
     }
 );
 
+/**
+ * Starts the MCP server with a stdio transport
+ * 
+ * Initializes the server, sets up exit handlers for graceful shutdown,
+ * and connects to the transport layer.
+ * 
+ * @returns A Promise that resolves when the server is connected
+ * @throws Will throw an error if server connection fails
+ */
 export async function startServer() {
     const transport = new StdioServerTransport();
     setupExitWatchdog(transport);
     await server.connect(transport);
 }
 
+/**
+ * Sets up handlers for graceful server shutdown
+ * 
+ * Watches for stdin close, SIGINT, and SIGTERM signals to ensure
+ * the server shuts down properly. Includes a safety timeout to force
+ * exit if clean shutdown takes too long.
+ * 
+ * @param transport - The transport connection to close on shutdown
+ */
 function setupExitWatchdog(transport: Transport) {
     const handleExit = async () => {
         setTimeout(() => process.exit(0), 15000);
