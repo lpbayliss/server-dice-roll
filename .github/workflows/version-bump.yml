@@ -1,0 +1,129 @@
+name: Version Bump
+
+on:
+  pull_request:
+    types: [closed]
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      bump-type:
+        description: 'Version bump type (patch, minor, major)'
+        required: true
+        default: 'patch'
+        type: 'choice'
+        options:
+          - patch
+          - minor
+          - major
+
+jobs:
+  version-bump:
+    runs-on: ubuntu-latest
+    # Only run on merged PRs or manual triggers
+    if: (github.event_name == 'pull_request' && github.event.pull_request.merged == true) || github.event_name == 'workflow_dispatch'
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+      
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: '10.11.0'
+          run_install: false
+      
+      - name: Install dependencies
+        run: pnpm install
+      
+      - name: Configure Git
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+
+      - name: Determine version bump
+        id: bump-version
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            let bumpType;
+            
+            if (context.eventName === 'workflow_dispatch') {
+              bumpType = context.payload.inputs['bump-type'];
+            } else if (context.eventName === 'pull_request' && context.payload.pull_request.merged) {
+              // Only run on merged PRs
+              if (!context.payload.pull_request.merged) {
+                console.log('PR was not merged, skipping version bump');
+                process.exit(0);
+              }
+              
+              // Get PR labels
+              const { data: labels } = await github.rest.issues.listLabelsOnIssue({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.payload.pull_request.number
+              });
+              
+              const versionLabels = labels.filter(label => 
+                ['patch', 'minor', 'major'].includes(label.name)
+              );
+              
+              if (versionLabels.length !== 1) {
+                console.log('PR does not have exactly one version bump label, using patch as default');
+                bumpType = 'patch';
+              } else {
+                bumpType = versionLabels[0].name;
+                console.log(`Using bump type from PR label: ${bumpType}`);
+              }
+            } else {
+              // Default fallback
+              bumpType = 'patch';
+            }
+            
+            core.exportVariable('BUMP_TYPE', bumpType);
+            
+      - name: Get current version
+        run: |
+          # Get current version from package.json
+          CURRENT_VERSION=$(node -p "require('./package.json').version")
+          echo "CURRENT_VERSION=$CURRENT_VERSION" >> $GITHUB_ENV
+      
+      - name: Calculate new version
+        run: |
+          # Calculate new version based on bump type
+          if [ "$BUMP_TYPE" == "patch" ]; then
+            NEW_VERSION=$(node -p "const [major, minor, patch] = '$CURRENT_VERSION'.split('.'); \`\${major}.\${minor}.\${parseInt(patch) + 1}\`")
+          elif [ "$BUMP_TYPE" == "minor" ]; then
+            NEW_VERSION=$(node -p "const [major, minor, patch] = '$CURRENT_VERSION'.split('.'); \`\${major}.\${parseInt(minor) + 1}.0\`")
+          elif [ "$BUMP_TYPE" == "major" ]; then
+            NEW_VERSION=$(node -p "const [major, minor, patch] = '$CURRENT_VERSION'.split('.'); \`\${parseInt(major) + 1}.0.0\`")
+          fi
+          
+          echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_ENV
+          echo "Version will be bumped from $CURRENT_VERSION to $NEW_VERSION using $BUMP_TYPE bump"
+      
+      - name: Update version in package.json
+        run: |
+          npm version ${{ env.NEW_VERSION }} --no-git-tag-version
+          
+      - name: Commit and push changes
+        run: |
+          git add package.json
+          git commit -m "chore: bump version to ${{ env.NEW_VERSION }}"
+          git push origin main
+      
+      - name: Create tag
+        run: |
+          git tag v${{ env.NEW_VERSION }}
+          git push origin v${{ env.NEW_VERSION }} 

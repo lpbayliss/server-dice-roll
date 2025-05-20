@@ -6,10 +6,14 @@ on:
   workflow_dispatch:  # Allow manual trigger
 
 jobs:
-  build:
+  publish:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
       - name: Install pnpm
         uses: pnpm/action-setup@v2
@@ -29,6 +33,17 @@ jobs:
 
       - name: Build
         run: pnpm build
+      
+      - name: Get version
+        id: get-version
+        run: |
+          if [ "${{ github.event_name }}" == "release" ]; then
+            VERSION=${GITHUB_REF#refs/tags/v}
+          else
+            VERSION=$(node -p "require('./package.json').version")
+          fi
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          echo "Version to publish: $VERSION"
         
       - name: Publish to npm
         run: pnpm publish --no-git-checks

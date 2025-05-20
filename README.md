@@ -99,3 +99,32 @@ This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md
 ## Author
 
 Created by Luke Bayliss <hello@lukebayliss.com>
+
+## Release Process
+
+This project uses automated release workflows based on Pull Requests:
+
+1. **Version Bump Labels**: Each PR to the main branch must include exactly one version bump label:
+   - `patch` - For backwards-compatible bug fixes
+   - `minor` - For backwards-compatible new features
+   - `major` - For breaking changes
+
+2. **Version Bumping**: When a PR is merged to main, the version is automatically bumped according to the PR label.
+
+3. **Release Creation**: When a version is bumped, a GitHub release is automatically created with a changelog based on commit messages.
+
+4. **Package Publishing**: When a GitHub release is created, the package is automatically published to npm.
+
+### PR Requirements
+
+All PRs must include exactly one version bump label (`patch`, `minor`, or `major`). A GitHub Action will check this requirement and block merging if it's not met.
+
+### Manual Versioning
+
+To manually trigger a version bump without creating a PR:
+1. Go to Actions > Version Bump workflow
+2. Click "Run workflow"
+3. Select the branch and bump type (patch, minor, major)
+4. Click "Run workflow"
+
+The rest of the process (creating release and publishing) will happen automatically.
