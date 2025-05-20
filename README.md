@@ -110,6 +110,7 @@ This project uses automated release workflows based on Pull Requests:
    - `major` - For breaking changes
 
 2. **Version Bumping**: When a PR is merged to main, the version is automatically bumped according to the PR label.
+   - As a safety mechanism, if changes are pushed directly to main (bypassing the PR process), a patch version bump will be triggered automatically.
 
 3. **Release Creation**: When a version is bumped, a GitHub release is automatically created with a changelog based on commit messages.
 

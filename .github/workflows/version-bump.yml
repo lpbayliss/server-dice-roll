@@ -1,6 +1,13 @@
 name: Version Bump
 
 on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - '**.md'
   pull_request:
     types: [closed]
     branches:
@@ -20,8 +27,8 @@ on:
 jobs:
   version-bump:
     runs-on: ubuntu-latest
-    # Only run on merged PRs or manual triggers
-    if: (github.event_name == 'pull_request' && github.event.pull_request.merged == true) || github.event_name == 'workflow_dispatch'
+    # Only run on direct pushes to main, merged PRs, or manual triggers
+    if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.merged == true) || github.event_name == 'workflow_dispatch'
     permissions:
       contents: write
     
@@ -60,7 +67,13 @@ jobs:
             let bumpType;
             
             if (context.eventName === 'workflow_dispatch') {
+              // Manual workflow trigger
               bumpType = context.payload.inputs['bump-type'];
+              console.log(`Using manually selected bump type: ${bumpType}`);
+            } else if (context.eventName === 'push') {
+              // Direct push to main - always use patch
+              bumpType = 'patch';
+              console.log('Direct push to main detected, using patch bump');
             } else if (context.eventName === 'pull_request' && context.payload.pull_request.merged) {
               // Only run on merged PRs
               if (!context.payload.pull_request.merged) {
@@ -89,6 +102,7 @@ jobs:
             } else {
               // Default fallback
               bumpType = 'patch';
+              console.log('Unknown event type, using patch as default');
             }
             
             core.exportVariable('BUMP_TYPE', bumpType);
