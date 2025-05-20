@@ -7,9 +7,12 @@ on:
 jobs:
   check-version-labels:
     runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      issues: write
     
     steps:
-      - name: Check for version bump labels
+      - name: Check and manage version bump labels
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -25,7 +28,41 @@ jobs:
             );
             
             if (versionLabels.length === 0) {
-              core.setFailed('PR must have one version bump label: patch, minor, or major');
+              console.log('No version bump label found. Adding default "patch" label');
+              
+              try {
+                await github.rest.issues.addLabels({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: context.issue.number,
+                  labels: ['patch']
+                });
+                console.log('Successfully added "patch" label');
+              } catch (error) {
+                console.error('Failed to add patch label:', error);
+                // Check if the label exists, if not create it
+                try {
+                  await github.rest.issues.createLabel({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    name: 'patch',
+                    color: '0366d6',
+                    description: 'Backward compatible bug fixes'
+                  });
+                  
+                  // Try adding the label again
+                  await github.rest.issues.addLabels({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: context.issue.number,
+                    labels: ['patch']
+                  });
+                  console.log('Created and added "patch" label');
+                } catch (createError) {
+                  console.error('Failed to create and add patch label:', createError);
+                  core.setFailed('Failed to add patch label');
+                }
+              }
               return;
             }
             

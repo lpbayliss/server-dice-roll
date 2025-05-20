@@ -118,7 +118,7 @@ This project uses automated release workflows based on Pull Requests:
 
 ### PR Requirements
 
-All PRs must include exactly one version bump label (`patch`, `minor`, or `major`). A GitHub Action will check this requirement and block merging if it's not met.
+All PRs should include exactly one version bump label (`patch`, `minor`, or `major`). If no label is specified, the system will automatically add the `patch` label as the default. PRs with multiple version labels will still be blocked from merging.
 
 ### Manual Versioning
 
