@@ -31,7 +31,7 @@
     "roll",
     "server"
   ],
-  "packageManager": "pnpm@10.11.0",
+  "packageManager": "pnpm@10.12.4",
   "bin": {
     "mcp-server-dice-roll": "cli.js"
   },
