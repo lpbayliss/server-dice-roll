@@ -1,3 +1,5 @@
+[![MseeP.ai Security Assessment Badge](https://mseep.net/pr/lpbayliss-server-dice-roll-badge.png)](https://mseep.ai/app/lpbayliss-server-dice-roll)
+
 # server-dice-roll
 
 A Model Context Protocol (MCP) server for simulating dice rolls with support for standard dice notation and Fate/Fudge dice.
