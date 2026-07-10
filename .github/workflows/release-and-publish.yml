@@ -58,7 +58,7 @@ jobs:
       - name: Install pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: '10.11.0'
+          version: '10.34.5'
           run_install: false
       
       - name: Install dependencies
@@ -238,7 +238,7 @@ jobs:
       - name: Install pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: '10.11.0'
+          version: '10.34.5'
           run_install: false
       
       - name: Setup Node.js
@@ -327,7 +327,7 @@ jobs:
       - name: Install pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: '10.11.0'
+          version: '10.34.5'
           run_install: false
       
       - name: Setup Node.js
